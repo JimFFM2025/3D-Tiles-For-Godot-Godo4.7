@@ -7,8 +7,12 @@ on:
     branches: [ master ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   GIT_LFS_SKIP_SMUDGE: "1"
+  VCPKG_COMMIT: dbe35ceb30c688bf72e952ab23778e009a578f18
 
 jobs:
   double:
@@ -18,11 +22,23 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        submodules: false
 
-    - name: Set up Python 3.8
+    - name: Checkout pinned vcpkg source
+      uses: actions/checkout@v4
+      with:
+        repository: microsoft/vcpkg
+        ref: ${{ env.VCPKG_COMMIT }}
+        path: .copilot-vcpkg/${{ env.VCPKG_COMMIT }}
+        fetch-depth: 1
+        persist-credentials: false
+        submodules: false
+
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: '3.8'
+        python-version: '3.12'
 
     - name: Install SCons
       run: pip install scons
@@ -31,9 +47,17 @@ jobs:
       uses: microsoft/setup-msbuild@v1.3
       with:
         vs-version: '17.7'
-        include-optional: true
 
-    - name: Build Extension (Double Precision Debug)
+    - name: Pre-setup vcpkg and globally disable pkgconfig fixup
+      shell: powershell
+      run: |
+        $workspaceVcpkgDir = Join-Path $env:GITHUB_WORKSPACE ".copilot-vcpkg\$env:VCPKG_COMMIT"
+        $driveRoot = [System.IO.Path]::GetPathRoot($env:GITHUB_WORKSPACE)
+        $vcpkgRoot = Join-Path $driveRoot ".ezvcpkg"
+        $vcpkgDir = Join-Path $vcpkgRoot $env:VCPKG_COMMIT
+        & "$env:GITHUB_WORKSPACE\.github\scripts\stage-vcpkg-for-ezvcpkg.ps1" -SourceVcpkgDir $workspaceVcpkgDir -TargetVcpkgDir $vcpkgDir
+
+    - name: Build Extension (Double Precision)
       run: scons platform=windows arch=x64 compileTarget=extension target=template_release buildCesium=true precision=double
 
     - name: Verify Build Output
@@ -53,11 +77,23 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        submodules: false
 
-    - name: Set up Python 3.8
+    - name: Checkout pinned vcpkg source
+      uses: actions/checkout@v4
+      with:
+        repository: microsoft/vcpkg
+        ref: ${{ env.VCPKG_COMMIT }}
+        path: .copilot-vcpkg/${{ env.VCPKG_COMMIT }}
+        fetch-depth: 1
+        persist-credentials: false
+        submodules: false
+
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: '3.8'
+        python-version: '3.12'
 
     - name: Install SCons
       run: pip install scons
@@ -66,9 +102,17 @@ jobs:
       uses: microsoft/setup-msbuild@v1.3
       with:
         vs-version: '17.7'
-        include-optional: true
 
-    - name: Build Extension (Single Precision Debug)
+    - name: Pre-setup vcpkg and globally disable pkgconfig fixup
+      shell: powershell
+      run: |
+        $workspaceVcpkgDir = Join-Path $env:GITHUB_WORKSPACE ".copilot-vcpkg\$env:VCPKG_COMMIT"
+        $driveRoot = [System.IO.Path]::GetPathRoot($env:GITHUB_WORKSPACE)
+        $vcpkgRoot = Join-Path $driveRoot ".ezvcpkg"
+        $vcpkgDir = Join-Path $vcpkgRoot $env:VCPKG_COMMIT
+        & "$env:GITHUB_WORKSPACE\.github\scripts\stage-vcpkg-for-ezvcpkg.ps1" -SourceVcpkgDir $workspaceVcpkgDir -TargetVcpkgDir $vcpkgDir
+
+    - name: Build Extension (Single Precision)
       run: scons platform=windows arch=x64 compileTarget=extension target=template_release buildCesium=true
 
     - name: Verify Build Output
